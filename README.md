@@ -5,6 +5,7 @@
 Tento projekt je plně optimalizovaný pro nejnovější prostředí (Python 3.14+) a je přednastavený tak, aby bezproblémově spolupracoval s databází MySQL/MariaDB bez složitého nastavování.
 
 <img width="1413" height="943" alt="image" src="https://github.com/user-attachments/assets/6e9fe720-cb80-4bf1-b261-4ee3d9aedda5" />
+<img width="1413" height="943" alt="image" src="https://github.com/user-attachments/assets/cb60f125-e8aa-403d-9dd5-cffad6842149" />
 
 ## Zprovoznění projektu:
 
