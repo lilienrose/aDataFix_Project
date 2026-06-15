@@ -1,0 +1,85 @@
+{% extends 'aDataFix/base.html' %} 
+{% load static %}
+{% load i18n %}
+
+{% block content %}
+    <div class="db-container p-4">
+
+        <h2 class="text-2xl font-bold mb-4">
+            Tabulky a Pohledy v databázi: <span class="text-primary">{{ db_config }}</span>
+        </h2>
+<h2>
+        <a href="{% url 'db_select' %}" class="btn btn-sm btn-info text-xs ml-3 py-1 px-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition" title="Změnit aktivní databázi">
+                Změnit DB 🗄️
+            </a>
+</h2>
+        {% include "aDataFix/messages_snippet.html" %}
+
+        <div class="card shadow-md mb-6">
+            <h3 class="card-header text-xl font-semibold p-3 border-b">
+                💾 Tabulky ({{ tables|length }})
+            </h3>
+            <div class="card-body p-3">
+                <p class="mb-3">
+                    <a href="{% url 'table_create' %}" class="btn btn-primary bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition">
+                        ➕ Vytvořit novou tabulku
+                    </a>
+                </p>
+
+                <a href="{% url 'export_db' %}" class="btn btn-success">
+    <i class="fas fa-download"></i> Exportovat celou DB (.sql)
+</a>
+
+                {% if tables %}
+                <table class="w-full table-auto border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100 border-b border-gray-300">
+                            <th class="text-left p-2">Název Tabulky</th>
+                            <th class="text-center p-2 w-1/4">Akce</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for table in tables %}
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="p-2">
+                                <a href="{% url 'table_data' table %}" class="text-blue-600 hover:text-blue-800 font-medium">
+                                    <span class="text-xl mr-2">📋</span> {{ table }}
+                                </a>
+                            </td>
+                            
+                            <td class="p-2 text-center flex justify-around items-center space-x-2">
+                                
+                                <a href="{% url 'table_data' table %}" class="btn-action text-sm text-blue-500 hover:text-blue-700" title="Zobrazit data">
+                                    Zobrazit
+                                </a>
+
+                                <a href="{% url 'table_structure' table_name=table %}" class="btn-action text-sm text-yellow-600 hover:text-yellow-800" title="Struktura a sloupce">
+                                    Struktura
+                                </a>
+
+                                <a href="{% url 'table_edit' table_name=table %}" class="btn-action text-sm text-green-600 hover:text-green-800" title="Přidat nový záznam">
+                                    Nový Záznam
+                                </a>
+                                
+                                <form method="post" 
+                                      action="{% url 'drop_table' table_name=table %}" 
+                                      style="display:inline;"
+                                      onsubmit="return confirm('🚨 VAROVÁNÍ: Opravdu chcete TRVALE smazat tabulku \'{{ table }}\' a všechna její data?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-link text-sm text-red-600 hover:text-red-800 p-0" title="Smazat tabulku (DROP TABLE)">
+                                    Smazat
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-gray-500">V databázi nejsou žádné tabulky.</p>
+                {% endif %}
+            </div>
+        </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends 'aDataFix/base.html' %}
+
+{% block title %}Struktura {{ table_name }}{% endblock %}
+
+{% block content %}
+    <h2>Struktura tabulky: {{ table_name }}</h2>
+    
+    {% include "aDataFix/messages_snippet.html" %}
+
+    <p>
+        <a href="{% url 'table_data' table_name=table_name %}">◀️ Zpět na data</a>
+    </p>
+
+    {% if errors %}
+        <p class="error-message">Chyba při načítání struktury: {{ errors|join:", " }}</p>
+    {% elif structure %}
+        <table class="data-table">
+            <thead>
+    <tr>
+        {% for col_name in structure_cols %}
+            <th>{{ col_name }}</th>
+        {% endfor %}
+        <th>Akce</th>
+    </tr>
+</thead>
+            <tbody>
+                <tbody>
+    {% for column in structure %}
+        <tr>
+            {% for item in column %}
+                <td>{{ item }}</td>
+            {% endfor %}
+            
+            <td>
+                <a href="{% url 'column_index' table_name=table_name column_name=column.0 %}">Indexy</a> 
+                | 
+                <a href="{% url 'column_foreign_keys' table_name=table_name column_name=column.0 %}">Cizí klíče</a>
+            </td>
+        </tr>
+    {% endfor %}
+</tbody>
+            </tbody>
+        </table>
+
+    {% else %}
+        <p>Struktura tabulky nebyla nalezena.</p>
+    {% endif %}
+
+{% endblock %}

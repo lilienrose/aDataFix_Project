@@ -1,0 +1,47 @@
+{% extends 'aDataFix/base.html' %}
+
+{% block content %}
+    <h2>
+        {% if is_new_record %}
+            Vytvoření nového záznamu
+        {% else %}
+            Editace záznamu (PK: {{ pk_value|truncatechars:20 }})
+        {% endif %}
+        v tabulce {{ table_name }}
+    </h2>
+    
+    <p><a href="{% url 'table_data' table_name=table_name %}">⬅️ Zpět na data tabulky</a></p>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="mb-3">
+                {{ field.label_tag }}
+                
+                {# Pokud název pole obsahuje 'date' nebo 'time', vynutíme datetime-local widget #}
+               {% if "datetime" in field.name.lower or "time" in field.name.lower %}
+    <input type="datetime-local" 
+           name="{{ field.name }}" 
+           id="{{ field.auto_id }}"
+           class="form-control" 
+           {# Přidán filtr |default_if_none:'' a opraven formát pro datetime-local #}
+           value="{% if field.value %}{{ field.value|date:'Y-m-d\TH:i' }}{% endif %}">
+{% else %}
+    {{ field }}
+{% endif %}
+
+                {% if field.help_text %}
+                    <small class="form-text text-muted d-block">{{ field.help_text }}</small>
+                {% endif %}
+                
+                {% if field.errors %}
+                    <div class="text-danger small">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <br>
+        
+        <button type="submit" class="btn btn-primary mt-3">Uložit záznam</button>
+    </form>
+{% endblock %}

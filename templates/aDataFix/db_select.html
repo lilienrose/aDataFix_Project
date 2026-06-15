@@ -1,0 +1,25 @@
+{% extends 'aDataFix/base.html' %}
+
+{% block content %}
+    <h2>Vyberte Databázi (Schéma)</h2>
+    <p>Jste úspěšně připojeni k databázovému serveru. Nyní vyberte databázi, se kterou chcete pracovat:</p>
+
+    {% if db_names %}
+        <form method="post">
+            {% csrf_token %}
+            
+            <label for="db_selection">Dostupné databáze:</label>
+            <select name="selected_db" id="db_selection" class="form-select mb-3">
+                {% for db in db_names %}
+                    <option value="{{ db }}">{{ db }}</option>
+                {% endfor %}
+            </select>
+            
+            <button type="submit" class="btn btn-primary">Vybrat databázi</button>
+        </form>
+    {% else %}
+        <p class="text-warning">Nebyly nalezeny žádné dostupné databáze, nebo k nim nemáte přístup.</p>
+    {% endif %}
+
+    <p class="mt-4"><a href="{% url 'disconnect' %}">Odpojit a vrátit se na přihlášení</a></p>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "aDataFix/base.html" %}
+
+{% block title %}Detail Řádku: {{ table_name }}{% endblock %}
+
+{% block content %}
+    <div class="container mt-4">
+        <a href="{% url 'db_explorer_data' table_name=table_name %}" class="btn btn-sm btn-secondary mb-3">
+            &larr; Zpět na tabulku
+        </a>
+        
+        <h2>Detail Řádku v tabulce: {{ table_name }}</h2>
+
+        <div class="d-flex justify-content-end mb-3">
+      
+            <a href="{% url 'db_explorer_edit' table_name=table_name pk=primary_key_value %}" class="btn btn-warning me-2">Upravit</a>
+  
+            <button class="btn btn-danger">Smazat</button>
+        </div>
+        
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 30%;">Sloupec</th>
+                    <th>Hodnota</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for column_name in columns %}
+                    <tr>
+                        <td>{{ column_name }}</td>
+                        <td>
+                            {% with value=row_data|get_item:column_name %}
+                                {% if value is None %}
+                                    <span class="badge bg-secondary">NULL</span>
+                                {% else %}
+                                    {# Pro dlouhé texty zobrazení v <pre> pro zachování formátování #}
+                                    {% if value|length > 100 %}
+                                        <pre>{{ value }}</pre>
+                                    {% else %}
+                                        {{ value }}
+                                    {% endif %}
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

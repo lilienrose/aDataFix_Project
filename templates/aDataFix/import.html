@@ -1,0 +1,37 @@
+{% extends "aDataFix/base.html" %}
+{% load static %}
+
+
+{% block title %}Importovat data do {{ table_name }}{% endblock %}
+
+{% block content %}
+    <div class="container mt-4">
+        <h2>Importovat data do tabulky: {{ table_name }}</h2>
+        <p>Zpět na <a href="{% url 'table_data' table_name=table_name %}">data tabulky</a></p>
+        
+        <hr>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="card p-3">
+                <div class="card-body">
+                    {{ form.as_p }}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success mt-3">
+                <i class="fas fa-upload"></i> Nahrát a importovat
+            </button>
+        </form>
+
+        <div class="alert alert-info mt-4">
+            Informace k importu:
+            <ul>
+                <li>Nahrajte soubor ve formátu CSV (Comma Separated Values).</li>
+                <li>Hlavička sloupce v souboru CSV by měla přesně odpovídat názvům sloupců v databázi a jejich pořadí.</li>
+                <li>Doporučuje se zálohovat data před rozsáhlým importem.</li>
+            </ul>
+        </div>
+    </div>
+{% endblock %}

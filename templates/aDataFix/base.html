@@ -1,0 +1,111 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>aDataFix</title>
+    <style>
+        /* ZÁKLADNÍ STYLING */
+        body { font-family: sans-serif; margin: 0; background-color: #f4f4f4; }
+        
+        /* FLEXBOX LAYOUT */
+        .wrapper { 
+            display: flex; 
+            max-width: 1400px; 
+            margin: 20px auto; 
+            gap: 20px; 
+            padding: 0 20px;
+            align-items: flex-start;
+        }
+
+        /* SIDEBAR (Levý panel) */
+        .sidebar { 
+            width: 250px; 
+            min-width: 250px; 
+            background-color: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .sidebar h3 { margin-top: 0; font-size: 1.1em; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .sidebar ul { list-style: none; padding: 0; }
+        .sidebar li { margin-bottom: 8px; }
+        .sidebar a { text-decoration: none; color: #007bff; font-size: 0.9em; }
+        .sidebar a:hover { text-decoration: underline; }
+
+        /* HLAVNÍ KONTEJNER (Nahrazuje původní .container) */
+        .main-content { 
+            flex-grow: 1;
+            background-color: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden; 
+            min-width: 0; /* Důležité pro vnitřní skrolování tabulek */
+        }
+
+        /* NAVIGACE */
+        nav { border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        nav a { margin-left: 15px; text-decoration: none; color: #007bff; }
+        .db-info { font-size: 1.1em; font-weight: bold; }
+
+        /* TABULKY A RESPONZIVITA */
+        .table-responsive { width: 100%; overflow-x: auto; margin: 15px 0; border: 1px solid #ddd; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; white-space: nowrap; }
+        th { background-color: #e9ecef; }
+
+        /* FORMULÁŘE A ZPRÁVY */
+        .error { color: #dc3545; background-color: #f8d7da; padding: 10px; border-radius: 4px; border: 1px solid #f5c6cb; margin-bottom: 15px; }
+        .success { color: #28a745; background-color: #d4edda; padding: 10px; border-radius: 4px; border: 1px solid #c3e6cb; margin-bottom: 15px; }
+        form input, form textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; }
+        form button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="wrapper {% if all_tables %}has-sidebar{% endif %}">
+        
+        {% if all_tables %}
+       <aside class="sidebar">
+    <h3>Tabulky</h3>
+    <ul>
+        {% for t in all_tables %}
+            <li>
+                <a href="{% url 'table_data' table_name=t %}" 
+                   {% if t == table_name %}style="font-weight: bold; color: black;"{% endif %}>
+                   vypsat {{ t }}
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+</aside>
+        {% endif %}
+
+        <main class="main-content">
+            <nav>
+                <div class="db-info">
+                    {% if request.session.db_connection %}
+                    <p>Připojeno: <b>{{ request.session.db_connection.database }}</b></p>
+                    {% else %}
+                        Odpojeno
+                    {% endif %}
+                </div>
+                <div>
+                    {% if request.session.db_connection %}
+                        <a href="{% url 'table_list' %}"> Seznam tabulek </a>
+                        <a href="{% url 'sql_console' %}"> SQL příkaz </a>
+                        <a href="{% url 'disconnect' %}"> Odpojit </a>
+                    {% else %}
+                        <a href="{% url 'db_login' %}"> Připojit </a>
+                    {% endif %}
+                </div>
+            </nav>
+
+            {% include 'aDataFix/messages_snippet.html' %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

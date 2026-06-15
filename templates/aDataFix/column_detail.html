@@ -1,0 +1,42 @@
+{% extends 'aDataFix/base.html' %}
+
+{% block title %}{{ data_title }}{% endblock %}
+
+{% block content %}
+    <h2>{{ data_title }}</h2>
+    
+    {% include "aDataFix/messages_snippet.html" %}
+
+    <p>
+        <a href="{% url 'table_structure' table_name=table_name %}">◀️ Zpět na strukturu tabulky {{ table_name }}</a>
+    </p>
+
+    {% if errors %}
+        <p class="error-message">Chyba: {{ errors|join:", " }}</p>
+   {% elif data %}
+    <div style="overflow-x: auto; max-width: 100%;">
+        <table class="data-table"> 
+            <thead>
+                <tr>
+                    {% for col_name in data_cols %}
+                        <th>{{ col_name }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data %}
+                    <tr>
+                        {% for item in row %}
+                            <td>{{ item }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+   
+        <p>Pro sloupec {{ column_name }} nebyly nalezeny žádné relevantní záznamy.</p>
+    {% endif %}
+
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "aDataFix/base.html" %}
+
+{% block title %}Vytvořit tabulku{% endblock %}
+
+{% block content %}
+    <h2>Vytvořit novou tabulku v databázi {{ db_config }}</h2>
+
+    {% include "aDataFix/messages_snippet.html" %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <h3>Název</h3>
+        <p>
+            {{ form.table_name.label_tag }}
+            {{ form.table_name }}
+            {% if form.table_name.errors %}{{ form.table_name.errors }}{% endif %}
+        </p>
+
+        <h3>Sloupce</h3>
+        
+        <table class="data-table table-creation-form">
+            <thead>
+                <tr>
+                    <th>Název</th>
+                    <th>Typ</th>
+                    <th>PK (Primary Key)</th>
+                    <th>NN (Not Null)</th>
+                    <th>AI (Auto Increment)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ form.col1_name }}</td>
+                    <td>{{ form.col1_type }}</td>
+                    <td>{{ form.col1_pk }}</td>
+                    <td>{{ form.col1_nn }}</td>
+                    <td>{{ form.col1_ai }}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.col2_name }}</td>
+                    <td>{{ form.col2_type }}</td>
+                    <td>{{ form.col2_pk }}</td>
+                    <td>{{ form.col2_nn }}</td>
+                    <td>{{ form.col2_ai }}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.col3_name }}</td>
+                    <td>{{ form.col3_type }}</td>
+                    <td>{{ form.col3_pk }}</td>
+                    <td>{{ form.col3_nn }}</td>
+                    <td>{{ form.col3_ai }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <button type="submit" class="button-primary">Vytvořit tabulku</button>
+    </form>
+{% endblock %}

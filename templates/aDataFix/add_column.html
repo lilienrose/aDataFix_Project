@@ -1,0 +1,41 @@
+{% extends 'aDataFix/base.html' %} 
+{% block title %}Přidat sloupec do {{ table_name }}{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Přidat nový sloupec do tabulky: <strong>{{ table_name }}</strong></h2>
+<p><a href="{% url 'table_structure' table_name=table_name %}">Zpět na strukturu tabulky</a></p>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    
+    <fieldset class="form-group mb-4 p-3 border">
+        <legend class="border-bottom mb-2 pl-1">Definice sloupce</legend>
+        
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>Název sloupce</th>
+                    <th>Datový typ</th>
+                    <th>Délka/Sada</th>
+                    <th class="text-center">NULL</th>
+                    <th class="text-center">PK</th>
+                    <th class="text-center">AI</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ form.column_name }}</td>
+                    <td>{{ form.data_type }}</td>
+                    <td>{{ form.length }}</td>
+                    <td class="text-center">{{ form.is_null }}</td>
+                    <td class="text-center">{{ form.is_primary }}</td>
+                    <td class="text-center">{{ form.is_auto_increment }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </fieldset>
+
+    <button type="submit" class="btn btn-primary">Přidat sloupec</button>
+</form>
+
+{% endblock %}

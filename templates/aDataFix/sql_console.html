@@ -1,0 +1,33 @@
+{% extends 'aDataFix/base.html' %}
+
+{% block content %}
+    <h2>SQL Editor (Bod 12.)</h2>
+    
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Spustit SQL</button>
+    </form>
+
+    {% if data %}
+        <h3>Výsledek ({{ data|length }} řádků)</h3>
+        <table>
+            <thead>
+                <tr>
+                    {% for col in columns %}
+                        <th>{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data %}
+                    <tr>
+                        {% for cell in row %}
+                            <td>{{ cell|default:"NULL" }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+{% endblock %}
