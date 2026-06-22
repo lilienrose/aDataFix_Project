@@ -2,7 +2,8 @@
 
  **aDataFix** – webová aplikace postavená na frameworku Django, která slouží pro rychlou správu, prohlížení a opravu databázových tabulek přímo přes prohlížeč.
 
-<img width="1328" height="942" alt="image" src="https://github.com/user-attachments/assets/4585e6f2-5f32-450d-a6d0-c7e474593613" />
+<img width="1328" height="942" alt="image" src="https://github.com/user-attachments/assets/057b6d01-1493-4186-a8e3-ca7ce186f307" />
+
 
 
 <img width="1328" height="583" alt="image" src="https://github.com/user-attachments/assets/42c283b0-1ebb-4777-9439-0b528be36f08" />
