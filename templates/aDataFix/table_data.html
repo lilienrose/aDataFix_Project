@@ -43,25 +43,21 @@ table {
 }
 </style>
 {% block content %}
-    <h2>Data v tabulce: {{ table_name }}</h2>
-    <p>Aktuálně zobrazeno prvních {{ data|length }} záznamů ({{ sql_query }})</p>
+<h3>Data (Celkem: {{ total_rows }})</h3>
 
-    <p>
-        <a href="{% url 'table_import' table_name=table_name %}" class="btn btn-sm btn-info">
-            <i class="fas fa-file-upload"></i> Importovat data
-        </a>
-        <a href="{% url 'table_edit' table_name=table_name %}" class="btn btn-sm btn-success">
-            ➕ Vložit nový záznam
-        </a>
-        | <a href="{% url 'table_structure' table_name=table_name %}">🗃️ Struktura</a>
-        | <a href="{% url 'export_table' table_name=table_name %}">💾 Exportovat data (CSV)</a>
-    </p>
-
-    <hr>
+<p style="color: #666; font-size: 0.85rem;">
+    Aktuálně zobrazeno {{ data|length }} záznamů. 
+    <details>
+        <summary style="cursor: pointer; color: #007bff;">Zobrazit SQL dotaz</summary>
+        <code style="display: block; background: #f8f9fa; padding: 10px; margin-top: 5px; border-radius: 4px;">
+            {{ sql_query }}
+        </code>
+    </details>
+</p>
 
     <h3>Struktura tabulky</h3>
     <p>
-        <a href="{% url 'add_column' table_name=table_name %}" class="btn btn-sm btn-success">
+        <a href="{% url 'add_column' table_name=table_name %}" class="button">
             ➕ Přidat sloupec
         </a>
     </p>
@@ -82,7 +78,6 @@ table {
             <td>
                 
                 <span title="{{ cell }}">
-                    {# Zde oříznutou hodnotu zobrazíme v buňce #}
                     {{ cell|truncatechars:50 }}
                 </span>
             </td>
@@ -100,8 +95,10 @@ table {
                     >
                         Smazat
                     </a>
+                    
                 </td>
             </tr>
+            
         {% endfor %}
         </tbody>
     </table>
@@ -184,7 +181,26 @@ table {
     <h3>Data (Celkem: {{ total_rows }})</h3>
     
     {% if data %}
-    
+  <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <form method="GET" style="display: flex; align-items: center; gap: 10px;">
+            <input type="hidden" name="page_size" value="{{ page_size }}">
+            
+            <div style="display: flex; border: 2px solid #ddd; border-radius: 6px; overflow: hidden; background: white;">
+                <input type="text" name="search" value="{{ search_query|default:'' }}" 
+                       placeholder="Hledat v tabulce..." 
+                       style="padding: 10px; border: none; outline: none; width: 300px; font-size: 14px;">
+                
+                <button type="submit" style="background: #f8f9fa; border: none; border-left: 1px solid #ddd; padding: 0 15px; cursor: pointer; color: #333;">
+                    🔍 Hledat
+                </button>
+            </div>
+            {% if search_query %}
+                <a href="?page_size={{ page_size }}" style="color: #e74c3c; text-decoration: none; font-size: 0.9rem; font-weight: bold;">
+                    ✖ Zrušit vyhledávání
+                </a>
+            {% endif %}
+        </form>
+    </div>
     {% if total_pages > 1 %}
         <div class="pagination-info mb-3">
             Zobrazeno {{ data|length }} záznamů na stránce {{ page }} z {{ total_pages }}.
@@ -229,6 +245,9 @@ table {
                 title="Smazat vybrané záznamy">
             <i class="fas fa-trash"></i> Smazat vybrané
         </button>
+        <a href="{% url 'table_edit' table_name=table_name %}" class="button">
+            ➕ Vložit nový záznam
+        </a>
     </div>
 
     <div class="table-responsive">
@@ -250,7 +269,7 @@ table {
                 <tr>
                     <td>
                         {% if pk_column %} 
-                            <input type="checkbox" name="record_pk" value="{{ record.pk_value_for_url }}">
+                            <input type="checkbox" style="width: 18px; height: 18px;" name="record_pk" value="{{ record.pk_value_for_url }}">
                         {% endif %}
                     </td>
 
@@ -277,12 +296,12 @@ table {
     </td>
 {% endfor %}   
                     <td>
-                        <a href="{% url 'table_edit_pk' table_name=table_name pk_value=record.pk_value_for_url %}" class="btn btn-sm btn-info">
+                        <a href="{% url 'table_edit_pk' table_name=table_name pk_value=record.pk_value_for_url %}" class="smallbutton">
                             Editovat
                         </a>
                         
                         <a href="{% url 'delete_record' table_name=table_name pk_value=record.pk_value_for_url %}" 
-                           class="btn btn-sm btn-danger"
+                           class="smallbutton"
                            onclick="return confirm('Opravdu chcete smazat záznam s klíčem ID: {{ record.pk_value_for_url }}?')"
                         >
                             Smazat
@@ -308,7 +327,6 @@ table {
                 <button disabled class="btn btn-sm btn-default">« Předchozí</button>
             {% endif %}
 
-            {# Čísla stránek #}
             {% for p_num in pagination_range %}
                 <a href="{{ data_url }}?page={{ p_num }}" 
                    class="btn btn-sm {% if p_num == page %}btn-primary{% else %}btn-default{% endif %}">
@@ -316,7 +334,6 @@ table {
                 </a>
             {% endfor %}
             
-            {# Tlačítko Další #}
             {% if page < total_pages %}
                 <a href="{{ data_url }}?page={{ page|add:'1' }}" class="btn btn-sm btn-default">Další »</a>
             {% else %}

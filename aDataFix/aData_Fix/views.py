@@ -22,8 +22,6 @@
 # Password:   The corresponding password for the chosen user (your root password for local MariaDB)
 # Database:   Enter the default database name (e.g., divDB). If unknown, it can be selected later.
 #------------------------------------------------------------------------------------
-
-# djang_adminer/views.py (OPRAVENÁ VERZE)
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.contrib import messages
@@ -31,18 +29,20 @@ from django.http import HttpResponse, StreamingHttpResponse
 from django.utils.safestring import mark_safe
 from django.db import transaction
 from django.contrib.auth.decorators import user_passes_test
-
+from django.db.models import Q
 import csv
 import socket
 from datetime import datetime
 from io import TextIOWrapper
-
+import csv
+import json
+import io
 
 from .forms import (
     ColumnForm, DBLoginForm, SQLConsoleForm, 
     DynamicRecordForm, TableCreateForm, ImportForm 
 )
-from .db_connector import DBConnector
+from .db_connector import DBConnector 
 
 def get_connector(request):
     if hasattr(request, '_cached_conn'):
@@ -82,12 +82,14 @@ def _get_primary_key_column(col_struct, structure):
     key_index = -1 
     
     try:
+        # Hledáme index sloupce 'Key'
         key_index = col_struct.index('Key') 
     except ValueError:
         return None
 
     if key_index != -1:
         for col_info in structure:
+            # col_info[0] je název sloupce (Field)
             if len(col_info) > key_index and col_info[key_index] == 'PRI':
                 return col_info[0]
                 
@@ -120,6 +122,7 @@ def db_login_view(request):
             if success:
                 request.session['db_connection'] = data
                 messages.success(request, f"Úspěšně připojeno k {data['host']}:{port if port else 'default'}")
+                
                 if data.get('database'):
                     return redirect('table_list')
                 else:
@@ -132,7 +135,6 @@ def db_login_view(request):
              return redirect('table_list')
         form = DBLoginForm()
     
-    # SPRÁVNÁ CESTA
     return render(request, 'aDataFix/db_login.html', {'form': form})
 
 @connection_required
@@ -145,33 +147,49 @@ def disconnect_view(request):
 
 @connection_required
 def table_list_view(request):
-    """Zobrazí seznam tabulek a pohledů (table_list.html)"""
+    """ Funkce, která ukáže list všech tabulek a dovolí nám s nim pracovat. """
     connector = get_connector(request)
-    columns, all_objects, errors = connector.get_tables()
     
+    columns, all_objects, errors = connector.get_tables()
+    if not all_objects and not errors:
+        try:
+            connector.execute_query("SELECT 1")
+        except:
+            errors = ["Spojení s databází bylo přerušeno. Zkuste se znovu přihlásit."]
+
     tables, views = [], []
     if all_objects:
         for obj in all_objects:
-            if obj[1] == 'BASE TABLE': 
+            if len(obj) > 1:
+                if obj[1] == 'BASE TABLE': 
+                    tables.append(obj[0])
+                elif obj[1] == 'VIEW':
+                    views.append(obj[0])
+            else:
                 tables.append(obj[0])
-            elif obj[1] == 'VIEW':
-                views.append(obj[0])
 
     context = {
         'tables': tables,
         'views': views,
         'errors': errors,
-        'db_config': connector.database or "(Není vybrána DB)"
+        'db_config': getattr(connector, 'database', "(Neznámá DB)")
     }
     return render(request, 'aDataFix/table_list.html', context)
 
-
 @connection_required
 def table_data_view(request, table_name):
+    """ Funkce pro pohled na jednotlivé tabulky a jejich data. """
     connector = get_connector(request)
     res_tables = connector.get_tables()
     raw_table_rows = res_tables[1] if len(res_tables) > 1 else []
     all_tables_list = [row[0] for row in raw_table_rows]
+
+    if res_tables and len(res_tables) > 1 and res_tables[1] is not None:
+        raw_table_rows = res_tables[1]
+    else:
+        raw_table_rows = []
+    all_tables_list = [row[0] for row in raw_table_rows]
+    
     PAGE_SIZE_DEFAULT = 50 
     try:
         page = int(request.GET.get('page', 1))
@@ -181,21 +199,21 @@ def table_data_view(request, table_name):
         page_size = PAGE_SIZE_DEFAULT
         
     page = max(1, page) 
-    
-
     col_struct, structure, err_struct = connector.get_table_structure(table_name)
-    
+
     if structure is None or err_struct:
-        messages.error(request, f"Nepodařilo se načíst strukturu tabulky '{table_name}'. Důvod: {err_struct[0] if err_struct else 'Tabulka neexistuje nebo chyba oprávnění.'}")
+        messages.error(request, f"Nepodařilo se načíst strukturu tabulky '{table_name}'.")
         return redirect('table_list')
 
+    search_query = request.GET.get('search', '').strip()
+    
+    where_clause = table_searching_function(structure, search_query)
 
     total_rows = 0
     total_pages = 1
-    pagination_range = range(1, 2) 
+    pagination_range = range(1, 2)
     
-
-    count_query = f"SELECT COUNT(*) FROM `{table_name}`"
+    count_query = f"SELECT COUNT(*) FROM `{table_name}`{where_clause}"
     _, count_result, count_errors = connector.execute_query(count_query)
     
     if count_result and not count_errors:
@@ -203,24 +221,22 @@ def table_data_view(request, table_name):
             total_rows = int(count_result[0][0])
         except (ValueError, IndexError):
             pass 
-            
+
     if total_rows > 0:
         total_pages = (total_rows + page_size - 1) // page_size
-        page = min(page, total_pages) 
-        
+        page = min(page, total_pages)
         offset = (page - 1) * page_size
-        
-        sql_query = f"SELECT * FROM `{table_name}` LIMIT {page_size} OFFSET {offset}"
+
+        sql_query = f"SELECT * FROM `{table_name}`{where_clause} LIMIT {page_size} OFFSET {offset}"
         
         start_page = max(1, page - 9)
         end_page = min(total_pages, page + 9)
         pagination_range = range(start_page, end_page + 1)
-        
     else:
-        sql_query = f"SELECT * FROM `{table_name}` LIMIT 0"
-        
-    columns, data_rows, errors = connector.execute_query(sql_query) 
-        
+        sql_query = f"SELECT * FROM `{table_name}`{where_clause} LIMIT 0"
+
+    columns, data_rows, errors = connector.execute_query(sql_query)
+    
     pk_column = None
     pk_index = -1
   
@@ -274,11 +290,13 @@ def table_data_view(request, table_name):
         'pagination_range': pagination_range,
         'data_rows_processed': processed_data_for_template, 
         'all_tables': all_tables_list,
+        'search_query': search_query,
     }
     return render(request, 'aDataFix/table_data.html', context)
 
 @connection_required
 def sql_console_view(request):
+    """ Funkce umožňující zadávat příkazy přes SQL konzoli """
     connector = get_connector(request)
     columns, data, errors = None, None, None
     form = SQLConsoleForm(request.POST or None)
@@ -337,7 +355,6 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils.safestring import mark_safe
 
-
 @connection_required
 def table_edit_view(request, table_name, pk_value=None):
     """
@@ -360,7 +377,6 @@ def table_edit_view(request, table_name, pk_value=None):
     pk_column_name = _get_primary_key_column(col_struct, structure)
     is_new_record = pk_value is None
     initial_data = {} 
-
 
     if not is_new_record and pk_column_name:
         query = f"SELECT * FROM `{table_name}` WHERE `{pk_column_name}` = %s"
@@ -400,16 +416,17 @@ def table_edit_view(request, table_name, pk_value=None):
             messages.warning(request, f"Záznam s klíčem '{pk_value}' nebyl nalezen.")
             return redirect('table_data', table_name=table_name)
             
-
     if request.method == 'POST':
         postdata = request.POST.copy()
         for field_name in postdata:
             val = postdata.get(field_name)
             if val and isinstance(val, str) and 'T' in val and len(val) <= 19:
                 new_val = val.replace('T', ' ')
-                if len(new_val) == 16:
+                if len(new_val) == 16: 
                     new_val += ':00'
                 postdata[field_name] = new_val
+    
+
         form = DynamicRecordForm(postdata, structure=structure, pk_name=pk_column_name, initial_data=initial_data)
         
         if form.is_valid():
@@ -455,7 +472,6 @@ def table_edit_view(request, table_name, pk_value=None):
                 messages.success(request, f"Záznam byl úspěšně {action}.")
                 return redirect('table_data', table_name=table_name)
             else:
-                
                 if "1048" in first_error or "cannot be null" in first_error:
                     import re
                     column_match = re.search(r"Column '(\w+)'", first_error)
@@ -570,7 +586,6 @@ def export_table_view(request, table_name):
         messages.error(request, "Pro export je vyžadováno aktivní připojení k databázi.")
         return redirect('table_list')
 
-    # Načtení dat
     sql_query = f"SELECT * FROM `{table_name}`"
     columns, data_rows, data_errors = connector.execute_query(sql_query) 
     
@@ -583,7 +598,6 @@ def export_table_view(request, table_name):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
     writer = csv.writer(response, delimiter=';', quoting=csv.QUOTE_MINIMAL)
-    
     writer.writerow(columns)
     
     if data_rows:
@@ -592,7 +606,6 @@ def export_table_view(request, table_name):
 
     return response
 
-# djang_adminer/views.py
 
 @connection_required
 def table_structure_view(request, table_name):
@@ -672,6 +685,7 @@ def column_index_view(request, table_name, column_name):
 def column_foreign_keys_view(request, table_name, column_name):
     """Zobrazí detailní cizí klíče pro konkrétní sloupec."""
     connector = get_connector(request)
+    
     if not connector.connection:
         success, error_msg = connector.connect()
         if not success:
@@ -754,6 +768,7 @@ def add_column_view(request, table_name):
     Zobrazí formulář pro přidání sloupce a zpracuje ALTER TABLE ADD COLUMN.
     """
     connector = get_connector(request)
+    
     if not connector.connection:
         success, error_msg = connector.connect()
         if not success:
@@ -769,6 +784,8 @@ def add_column_view(request, table_name):
             data_type = col_data['data_type'].upper()
             default_val = col_data['default_value']
             length = col_data['length']
+
+ 
             types_without_length = ('TEXT', 'MEDIUMTEXT', 'LONGTEXT', 'DATE', 'DATETIME', 'TIME', 'BLOB', 'MEDIUMBLOB', 'LONGBLOB', 'FLOAT', 'DOUBLE')
             
             if data_type in types_without_length:
@@ -777,22 +794,18 @@ def add_column_view(request, table_name):
                 col_definition = f"{data_type}({length})"
             else:
                 col_definition = data_type
-
-           
             col_definition += " NULL" if col_data['is_null'] else " NOT NULL"
-
-  
             if default_val:
-
                 sql_default = default_val.replace('T', ' ')
                 col_definition += f" DEFAULT '{sql_default}'"
             elif not col_data['is_null'] and data_type == 'DATETIME':
-      
+
                 col_definition += " DEFAULT CURRENT_TIMESTAMP"
 
             if col_data['is_auto_increment'] and data_type in ('INT', 'BIGINT', 'SMALLINT', 'TINYINT'):
                 col_definition += " AUTO_INCREMENT"
             
+
             if col_data['is_primary'] or col_data['is_auto_increment']:
                  messages.warning(request, "Nastavení PK/AI při přidání sloupce je složitá operace. Tato funkce přidá sloupec se základním typem.")
 
@@ -860,7 +873,6 @@ def table_import_view(request, table_name):
                 text_file.seek(0)
                 delimiter = ';' if ';' in sample else ','
                 csv_reader = csv.reader(text_file, delimiter=delimiter)
-                
                 rows_to_insert = []
                 header = None
                 
@@ -892,6 +904,7 @@ def table_import_view(request, table_name):
                     if col_name.lower() not in existing_cols:
                         alter_query = f"ALTER TABLE `{table_name}` ADD COLUMN `{col_name}` TEXT NULL"
                         connector.execute_query(alter_query)
+
 
                 inserted_rows = 0
                 with transaction.atomic():
@@ -936,7 +949,7 @@ def delete_record_view(request, table_name, pk_value):
     if not success:
         messages.error(request, f"Chyba: Nelze se připojit k databázi. {error_msg}")
         return redirect('table_list') 
-    
+
     col_struct, structure, errors = connector.get_table_structure(table_name)
     
     if errors:
@@ -948,7 +961,6 @@ def delete_record_view(request, table_name, pk_value):
     if not pk_column_name:
         messages.error(request, f"Nelze smazat záznam. Tabulka '{table_name}' nemá definován primární klíč (PK).")
         return redirect('table_data', table_name=table_name)
-
     
     if pk_value is None or str(pk_value).strip() == '':
         messages.error(request, "Chyba: Hodnota klíče pro smazání je neplatná.")
@@ -1011,13 +1023,11 @@ def bulk_delete_view(request, table_name):
     if errors:
         messages.error(request, f"Chyba při načítání struktury tabulky: {errors[0]}")
         return redirect('table_data', table_name=table_name)
-
     pk_column = _get_primary_key_column(col_struct, structure)
 
     if not pk_column:
         messages.error(request, f"Nelze provést hromadné smazání. Tabulka '{table_name}' nemá definovaný primární klíč (PK).")
         return redirect('table_data', table_name=table_name)
-
     selected_pks = request.POST.getlist('record_pk')
     
     if not selected_pks:
@@ -1037,16 +1047,12 @@ def bulk_delete_view(request, table_name):
     except ValueError:
         messages.error(request, "Chyba: Jedna nebo více vybraných hodnot klíče není platné číslo.")
         return redirect('table_data', table_name=table_name)
-
     placeholders = ', '.join(['%s'] * len(selected_pks_int))
-
     query = f"DELETE FROM `{table_name}` WHERE `{pk_column}` IN ({placeholders})"
     
     try:
-
         deleted_count, _, q_errors = connector.execute_query(query, params=selected_pks_int)
 
- 
         if q_errors:
             first_error = q_errors[0]
             
@@ -1056,7 +1062,6 @@ def bulk_delete_view(request, table_name):
                  except (IndexError, ValueError):
                     deleted_count = 0
             else:
-                 # Skutečná SQL chyba
                  messages.error(request, mark_safe(f"Chyba při mazání: {first_error}<br>Použitý dotaz: <code>{query}</code>"))
                  return redirect('table_data', table_name=table_name)
 
@@ -1130,9 +1135,7 @@ def db_select_view(request):
         return redirect('disconnect')
     
     system_dbs = ['information_schema', 'performance_schema', 'mysql', 'sys']
-
     db_names = [row[0] for row in db_data if row[0] not in system_dbs]
-    
     request.session['db_list'] = db_names
 
     if request.method == 'POST':
@@ -1143,6 +1146,7 @@ def db_select_view(request):
             
             connection_data['database'] = selected_db 
             request.session['db_connection'] = connection_data
+
             
             messages.success(request, f"Úspěšně připojeno k databázi '{selected_db}'.")
             return redirect('table_list') 
@@ -1192,20 +1196,17 @@ def export_db_view(request):
         try:
             conn = connector.connection
             cursor = conn.cursor()
-            
             cursor.execute("SHOW TABLES")
             tables = [row[0] for row in cursor.fetchall()]
 
             for table in tables:
                 yield f"\n-- TABLE_DATA: {table}\n"
-                
                 cursor.execute(f"SELECT * FROM `{table}` LIMIT 0")
                 columns = [col[0] for col in cursor.description]
                 yield writer.writerow(columns)
-
                 cursor.execute(f"SELECT * FROM `{table}`")
                 while True:
-                    rows = cursor.fetchmany(100) 
+                    rows = cursor.fetchmany(100)
                     if not rows:
                         break
                     for row in rows:
@@ -1215,8 +1216,116 @@ def export_db_view(request):
 
         except Exception as e:
             yield f"\n-- CHYBA PŘI GENEROVÁNÍ: {str(e)}\n"
+
     response = StreamingHttpResponse(generate_csv_stream(), content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="{db_name}_full_backup.csv"'
     response['Cache-Control'] = 'no-cache'
     
     return response
+
+def  table_searching_function(structure, search_query):
+ 
+    if not search_query or not structure:
+        return ""
+    
+    try:
+        cols = [f"`{r[0]}` LIKE '%%{search_query}%%'" for r in structure if r and r[0]]
+        
+        if cols:
+            return " WHERE " + " OR ".join(cols)
+    except (TypeError, IndexError):
+        pass
+        
+    return ""
+def import_table_view(request):
+    if request.method == 'POST' and request.FILES.get('sql_file'):
+        file = request.FILES['sql_file']
+        filename = file.name.lower()
+        connector = get_connector(request)
+        imported_count = 0
+        batch_size = 500  
+
+        try:
+            connector.execute_query("START TRANSACTION;")
+
+            
+            if filename.endswith('.sql'):
+                sql_accumulated = ""
+                for line in file:
+                    sql_accumulated += line.decode('utf-8')
+                    if ';' in sql_accumulated:
+                        queries = sql_accumulated.split(';')
+                        sql_accumulated = queries.pop()
+                        for q in queries:
+                            query = q.strip()
+                            if query:
+                                connector.execute_query(query)
+                                imported_count += 1
+
+            elif filename.endswith('.csv'):
+                decoded_file = (line.decode('utf-8') for line in file)
+                reader = csv.reader(decoded_file)
+                headers = next(reader)
+                table_name = filename.split('.')[0].replace(' ', '_').replace('-', '_')
+                
+                cols = ", ".join([f"`{h}` TEXT" for h in headers])
+                connector.execute_query(f"CREATE TABLE IF NOT EXISTS `{table_name}` ({cols})")
+
+                batch = []
+                for row in reader:
+                    if any(row):
+                        clean_row = [f"'{str(v).replace("'", "''")}'" for v in row]
+                        batch.append(f"({', '.join(clean_row)})")
+                        if len(batch) >= batch_size:
+                            connector.execute_query(f"INSERT INTO `{table_name}` VALUES {', '.join(batch)}")
+                            imported_count += len(batch)
+                            batch = []
+                if batch:
+                    connector.execute_query(f"INSERT INTO `{table_name}` VALUES {', '.join(batch)}")
+                    imported_count += len(batch)
+
+            elif filename.endswith('.jsonl'):
+                table_name = filename.split('.')[0].replace(' ', '_')
+                batch = []
+                first_run = True
+                for line in file:
+                    data = json.loads(line.decode('utf-8'))
+                    if first_run:
+                        cols = ", ".join([f"`{k}` TEXT" for k in data.keys()])
+                        connector.execute_query(f"CREATE TABLE IF NOT EXISTS `{table_name}` ({cols})")
+                        first_run = False
+                    clean_vals = [f"'{str(v).replace("'", "''")}'" for v in data.values()]
+                    batch.append(f"({', '.join(clean_vals)})")
+                    if len(batch) >= batch_size:
+                        connector.execute_query(f"INSERT INTO `{table_name}` VALUES {', '.join(batch)}")
+                        imported_count += len(batch)
+                        batch = []
+                if batch:
+                    connector.execute_query(f"INSERT INTO `{table_name}` VALUES {', '.join(batch)}")
+                    imported_count += len(batch)
+
+            connector.execute_query("COMMIT;")
+            if hasattr(connector, 'close'):
+                connector.close()
+
+
+            if hasattr(request, '_cached_conn'):
+                del request._cached_conn
+            
+
+            request.session.pop('db_connector', None) 
+            
+
+            request.session.modified = True
+
+            messages.success(request, f"Import dokončen! Zpracováno {imported_count} záznamů. Seznam byl aktualizován.")
+            return redirect('table_list')
+        except Exception as e:
+            try:
+                connector.execute_query("ROLLBACK;")
+            except:
+                pass
+            messages.error(request, f"Chyba při importu: {str(e)}")
+            return render(request, 'aDataFix/import_table.html')
+
+    return render(request, 'aDataFix/import_table.html')
